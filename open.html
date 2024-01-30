@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Table</title>
+    
+    <style>
+        body {
+            font-family: 'Nova Square', sans-serif;
+            margin: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        section {
+            margin: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2a9a9;
+        }
+
+        .but {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: rgb(151, 220, 220);
+            color: rgb(8, 8, 8);
+            border: none;
+            cursor: pointer;
+        }
+
+        .but:hover {
+            background-color: rgb(124, 128, 128);
+        }
+
+        button.edit,
+        button.delete {
+            padding: 4px;
+            background-color: #f12412;
+            width: 85px;
+            height: 30px;
+            border-radius: 5px;
+            border: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+    </header>
+
+    <section>
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Reg.no</th>
+                    <th>Email</th>
+                    <th>Degree</th>
+                    <th>Semester</th>
+                    <th>Grade</th>
+                    <th colspan="2" style="text-align: center;">Action</th>
+                </tr>
+            </thead>
+
+            <tbody id="tableBody">
+                <!-- This is where the table rows will be populated dynamically -->
+            </tbody>
+        </table>
+    </section>
+
+    <button class="but" id="submit" onclick="home()"><b>Home</b></button>
+    <script>
+        fetch('/get-json-data')
+            .then(response => response.json())
+            .then(data => {
+                populateTable(data);
+            })
+            .catch(error => console.error('Error fetching JSON data:', error));
+
+        function populateTable(data) {
+            const table = document.getElementById('dataTable');
+            const tbody = table.getElementsByTagName('tbody')[0];
+            tbody.innerHTML = '';
+            data.forEach(item => {
+                const row = tbody.insertRow();
+                const keys = ['name', 'id', 'email', 'degree', 'sem', 'grade'];
+                keys.forEach(key => {
+                    const cell = row.insertCell();
+                    cell.appendChild(document.createTextNode(item[key]));
+                });
+
+                const editButtonCell = row.insertCell();
+                const editButton = document.createElement('button');
+                editButton.textContent = 'Edit';
+                editButton.className = 'edit'; // Add class for styling
+                editButton.addEventListener('click', () => editRow(item));
+                editButtonCell.appendChild(editButton);
+
+                const deleteButtonCell = row.insertCell();
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Delete';
+                deleteButton.className = 'delete'; // Add class for styling
+                deleteButton.addEventListener('click', () => deleteRow(row, item));
+                deleteButtonCell.appendChild(deleteButton);
+            });
+        }
+
+        function home() {
+            window.location.href = "/home";
+        }
+
+        function deleteRow(row, item) {
+            // Display a confirmation dialog
+            const confirmDelete = window.confirm('Are you sure you want to delete this item?');
+
+            if (confirmDelete) {
+                // Remove the row from the table
+                const table = document.getElementById('dataTable');
+                const tbody = table.getElementsByTagName('tbody')[0];
+                tbody.removeChild(row);
+
+                // Send a request to the server to update the JSON file
+                fetch('/delete-json-data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(item),
+                })
+                    .then(response => response.text())
+                    .then(message => console.log(message))
+                    .catch(error => console.error('Error updating JSON data:', error));
+            }
+        }
+
+        function editRow(item) {
+            // Display a confirmation dialog
+            const confirmEdit = window.confirm('Are you sure you want to edit this item?');
+
+            if (confirmEdit) {
+                // Create input fields for each property
+                const keys = ['name', 'id', 'email', 'degree', 'sem', 'grade'];
+                const inputFields = keys.map(key => {
+                    if (key === 'sem' || key === 'grade') {
+                        // Create a dropdown for 'Sem' and 'Grade'
+                        const select = document.createElement('select');
+                        const options = key === 'sem' ? ['Semester 1', 'Semester 2', 'Semester 3', 'Semester 4', 'Semester 5', 'Semester 6'] : ['Distinction', 'First Class', 'Second Class', 'Fail'];
+                        // Example options, modify as needed
+                        options.forEach(optionValue => {
+                            const option = document.createElement('option');
+                            option.value = option.textContent = optionValue;
+                            select.appendChild(option);
+                        });
+                        select.value = item[key];
+                        return select;
+                    } else {
+                        // Create a text input for other properties
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.value = item[key];
+                        return input;
+                    }
+                });
+
+                // Replace the table cells with input fields or dropdowns
+                const table = document.getElementById('dataTable');
+                const tbody = table.getElementsByTagName('tbody')[0];
+                const rowIndex = Array.from(tbody.rows).findIndex(row => row.cells[0].textContent === item.name);
+
+                keys.forEach((key, index) => {
+                    tbody.rows[rowIndex].cells[index].innerHTML = '';
+                    tbody.rows[rowIndex].cells[index].appendChild(inputFields[index]);
+                });
+
+                // Create Save button to save changes
+                const saveButton = document.createElement('button');
+                saveButton.textContent = 'Save';
+                saveButton.addEventListener('click', () => {
+                    if (validateEdit(inputFields)) {
+                        saveChanges(item, inputFields, rowIndex); // Pass rowIndex to saveChanges
+                    }
+                });
+                tbody.rows[rowIndex].cells[keys.length].innerHTML = '';
+                tbody.rows[rowIndex].cells[keys.length].appendChild(saveButton);
+
+                // Validation for specific fields
+                function validateEdit(inputFields) {
+                    let isValid = true;
+
+                    const name = inputFields[0].value;
+                    const id = inputFields[1].value;
+                    const email = inputFields[2].value;
+                    const degree = inputFields[3].value;
+
+                    if (!/^[a-zA-Z\s]{3,}$/.test(name)) {
+                        alert("Name should have at least 3 characters");
+                        isValid = false;
+                    }
+
+                    if (!/^\d{5,}$/.test(id)) {
+                        alert("Id should have 5 numbers");
+                        isValid = false;
+                    }
+
+                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                        alert("Invalid Format for Email");
+                        isValid = false;
+                    }
+
+                    if (!/^[a-zA-Z\s]{10,}$/.test(degree)) {
+                        alert("Degree Should have at least 10 letters");
+                        isValid = false;
+                    }
+
+                    return isValid;
+                }
+            }
+        }
+
+        function saveChanges(item, inputFields, rowIndex) {
+            const updatedItem = {};
+            const keys = ['name', 'id', 'email', 'degree', 'sem', 'grade'];
+
+            keys.forEach((key, index) => {
+                updatedItem[key] = inputFields[index].value;
+            });
+
+            // Send a request to the server to update the JSON file
+            fetch('/edit-json-data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ id: item.id, newItem: updatedItem }),
+            })
+                .then(response => response.text())
+                .then(message => {
+                    console.log(message);
+                    // Repopulate the table with updated data
+                    fetch('/get-json-data')
+                        .then(response => response.json())
+                        .then(data => {
+                            populateTable(data);
+                        })
+                        .catch(error => console.error('Error fetching JSON data:', error));
+                })
+                .catch(error => console.error('Error updating JSON data:', error));
+        }
+    </script>
+</body>
+
+</html>

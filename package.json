@@ -1,0 +1,15 @@
+{
+    "name": "crudapp",
+    "version": "1.0.0",
+    "description": "",
+    "main": "createserver.js",
+    "scripts": {
+      "start": "nodemon createserver.js"
+    },
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+      "nodemon":"^3.0.1"
+    }
+  }
+  
